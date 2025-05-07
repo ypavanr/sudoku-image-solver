@@ -1,55 +1,36 @@
-import numpy as np
-import tensorflow as tf
-import tensorflow_datasets as tfds
-mnist_dataset, mnist_info = tfds.load(name='mnist', with_info=True, as_supervised=True)
+import keras
+from keras.datasets import mnist # imporint the data set
+im_row , im_col = 28, 28 # size of image 28*28
+(train_img , train_labels),(test_img , test_labels) = mnist.load_data() 
+import matplotlib.pyplot as plt
+train_img = train_img.reshape(train_img.shape[0],im_row,im_col,1)
+test_img = test_img.reshape(test_img.shape[0],im_row,im_col,1)
+input_shape = (im_row,im_col,1)
+train_img = train_img/255.0
+test_img = test_img/255.0
+train_labels = keras.utils.to_categorical(train_labels,10) # 10 because we have 10 numbers so we need 10 classes
+test_labels = keras.utils.to_categorical(test_labels, 10)
+from keras.models import Sequential
+from keras.layers  import Conv2D ,MaxPool2D
+from keras.layers  import Flatten ,Dense
+from keras.layers import Dropout
 
-mnist_train, mnist_test = mnist_dataset['train'], mnist_dataset['test']
-
-num_validation_samples = 0.1 * mnist_info.splits['train'].num_examples
-num_validation_samples = tf.cast(num_validation_samples, tf.int64)
-
-num_test_samples = mnist_info.splits['test'].num_examples
-num_test_samples = tf.cast(num_test_samples, tf.int64)
-
-
-def scale(image, label):
-    image = tf.cast(image, tf.float32)
-    image /= 255.
-    return image, label
-
-scaled_train_and_validation_data = mnist_train.map(scale)
-
-test_data = mnist_test.map(scale)
-
-
-BUFFER_SIZE = 10000
-
-shuffled_train_and_validation_data = scaled_train_and_validation_data.shuffle(BUFFER_SIZE)
-
-validation_data = shuffled_train_and_validation_data.take(num_validation_samples)
-train_data = shuffled_train_and_validation_data.skip(num_validation_samples)
-
-
-BATCH_SIZE = 100
-
-train_data = train_data.batch(BATCH_SIZE)
-validation_data = validation_data.batch(num_validation_samples)
-test_data = test_data.batch(num_test_samples)
-
-validation_inputs, validation_targets = next(iter(validation_data))
-input_size = 784
-output_size = 10
-hidden_layer_size = 50
-
-model = tf.keras.Sequential([
-                            tf.keras.layers.Flatten(input_shape=(28,28,1)),
-                            tf.keras.layers.Dense(hidden_layer_size, activation='relu'),
-                            tf.keras.layers.Dense(hidden_layer_size, activation='relu'),
-                            tf.keras.layers.Dense(output_size, activation='softmax')   
-                            ])
-model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
-NUM_EPOCHS = 5
-
-model.fit(train_data, epochs = NUM_EPOCHS, validation_data=(validation_inputs, validation_targets), verbose=2)
-model.save("digit_classifier_model.keras")
-
+model = Sequential()
+model.add(Conv2D(32,kernel_size=(3,3),activation='relu',kernel_initializer='he_uniform', input_shape=(28, 28, 1))) 
+model.add(MaxPool2D(pool_size=(2,2)))
+model.add(Conv2D(64,kernel_size=(3,3),activation = 'relu'))
+model.add(Conv2D(128,kernel_size =(3,3),activation = 'relu'))
+model.add(MaxPool2D(pool_size=(2,2)))
+model.add(Flatten())
+model.add(Dense(100,activation='relu',kernel_initializer = 'he_uniform'))
+model.add(Dropout(0.5))
+model.add(Dense(10,activation='softmax'))
+opt = keras.optimizers.Adam()
+model.compile(optimizer=opt, loss='categorical_crossentropy', metrics=['accuracy'])
+history = model.fit(train_img, train_labels,
+          batch_size=128,
+          epochs=20,
+          verbose=1,
+          validation_data=(test_img, test_labels))
+score = model.evaluate(test_img,test_labels,verbose=0)
+model.save("my_model.keras")
